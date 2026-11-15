@@ -11,8 +11,8 @@ import SwiftUI
 struct BREADApp: App {
     var body: some Scene {
         WindowGroup {
-            // Launch straight into the ingredient grid
-            SelectView2()
+            // Launch into the homepage; "Start Plan" pushes the ingredient grid
+            StreakPetView()
         }
     }
 }
