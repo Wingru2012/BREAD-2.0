@@ -8,6 +8,13 @@ struct SelectView2: View {
     /// Ingredient whose detail sheet is currently open
     @State private var selectedIngredient: PlanIngredient?
     @State private var showTimer = false
+    /// Set when the flow finishes so we pop back to the homepage
+    @State private var shouldReturnHome = false
+    /// Timer state lives here so dismissing and re-opening TimerView5
+    /// keeps each ingredient's remaining time instead of resetting it
+    @State private var timerState: [UUID: IngredientTimer] = [:]
+    @State private var droppedOrder: [UUID] = []
+    @State private var selectedIngredientID: UUID?
 
     private let columns = [
         GridItem(.flexible(), spacing: 16),
@@ -85,8 +92,26 @@ struct SelectView2: View {
                 ingredients.append(ingredient)
             }
         }
-        .fullScreenCover(isPresented: $showTimer) {
-            TimerView5(ingredients: ingredients)
+        .fullScreenCover(isPresented: $showTimer, onDismiss: {
+            // Once the timer cover has closed, pop back to HomepageView1
+            if shouldReturnHome {
+                shouldReturnHome = false
+                dismiss()
+            }
+        }) {
+            TimerView5(
+                ingredients: ingredients,
+                selectedID: Binding(
+                    get: { selectedIngredientID ?? ingredients.first?.id ?? UUID() },
+                    set: { selectedIngredientID = $0 }
+                ),
+                timers: $timerState,
+                droppedOrder: $droppedOrder
+            )
+            .environment(\.finishPlan) {
+                shouldReturnHome = true
+                showTimer = false
+            }
         }
         .sheet(item: $selectedIngredient) { ingredient in
             // Bind straight into the array so edits show up in the grid instantly

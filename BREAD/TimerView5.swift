@@ -10,7 +10,7 @@ import Combine
 import UIKit
 
 /// Countdown state for one ingredient
-private struct IngredientTimer {
+struct IngredientTimer {
     var remaining: Int
     var isRunning = false
     var hasDropped = false
@@ -34,14 +34,18 @@ struct TimerView5: View {
     let breadOverlap: CGFloat = 140
     /// How far the bottom bread drops onto the plate so they overlap
     let breadPlateOverlap: CGFloat = 30
-    /// How far up ingredients land so they sit on top of the bread
-    let ingredientBaseOffset: CGFloat = 25
+    /// How far up ingredients land so they sit on top of the bread.
+    /// Raised to 100 (about half the ingredient's 150pt frame) so they rest
+    /// higher on the slice instead of hanging near the plate
+    let ingredientBaseOffset: CGFloat = 50
     
-    @State private var selectedID: UUID
-    /// One countdown per ingredient, so tabs keep their own time
-    @State private var timers: [UUID: IngredientTimer] = [:]
-    /// Order in which finished ingredients landed on the sandwich
-    @State private var droppedOrder: [UUID] = []
+    @Binding private var selectedID: UUID
+    /// One countdown per ingredient, so tabs keep their own time.
+    /// Owned by SelectView2 so leaving and re-entering keeps the remaining time
+    @Binding private var timers: [UUID: IngredientTimer]
+    /// Order in which finished ingredients landed on the sandwich.
+    /// Also owned by SelectView2 so the plate doesn't reset
+    @Binding private var droppedOrder: [UUID]
     /// Whether the ingredient tab strip is unfolded
     @State private var isTabsExpanded = true
     // Pushes PlatingView6 once the timer is marked complete
@@ -49,9 +53,16 @@ struct TimerView5: View {
     
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
-    init(ingredients: [PlanIngredient]) {
+    init(
+        ingredients: [PlanIngredient],
+        selectedID: Binding<UUID>,
+        timers: Binding<[UUID: IngredientTimer]>,
+        droppedOrder: Binding<[UUID]>
+    ) {
         self.ingredients = ingredients
-        _selectedID = State(initialValue: ingredients.first?.id ?? UUID())
+        _selectedID = selectedID
+        _timers = timers
+        _droppedOrder = droppedOrder
     }
     
     var body: some View {
@@ -169,11 +180,13 @@ struct TimerView5: View {
                         
                         VStack(spacing: 14) {
                             
-                            // Full-width blue pill play/pause toggle button
+                            // Full-width blue pill play/pause toggle button.
+                            // Only one countdown may run at a time, so playing is
+                            // blocked while another food's timer is counting down
                             Button {
                                 if selectedState.isRunning {
                                     updateSelected { $0.isRunning = false }
-                                } else {
+                                } else if !anotherTimerRunning {
                                     startSelected()
                                 }
                             } label: {
@@ -185,7 +198,8 @@ struct TimerView5: View {
                                     .clipShape(Capsule())
                             }
                             .buttonStyle(.plain)
-                            .disabled(selectedState.remaining == 0)
+                            .disabled(selectedState.remaining == 0 || anotherTimerRunning)
+                            .opacity(anotherTimerRunning ? 0.35 : 1)
                             
                             // Grey until every ingredient's timer has run out,
                             // then it turns blue and can be tapped
@@ -297,6 +311,13 @@ struct TimerView5: View {
     
     private var anyTimerRunning: Bool {
         ingredients.contains { state(for: $0.id).isRunning }
+    }
+    
+    /// True when an ingredient other than the selected one is counting down.
+    /// Only one timer may run at a time, so the selected tab can't be played
+    /// until that other countdown is paused
+    private var anotherTimerRunning: Bool {
+        ingredients.contains { $0.id != selectedID && state(for: $0.id).isRunning }
     }
     
     /// True once every ingredient's countdown has reached zero
@@ -454,12 +475,17 @@ struct TimerView5: View {
 }
 
 #Preview {
-    TimerView5(ingredients: [
-        PlanIngredient(topping: Topping(name: "Tomato", assetName: "tomato i"),
-                       name: "Tomato", hours: 0, minutes: 1),
-        PlanIngredient(topping: Topping(name: "Mayo", assetName: "mayo i"),
-                       name: "Mayo", hours: 1, minutes: 0),
-        PlanIngredient(topping: Topping(name: "Turkey", assetName: "turkey i"),
-                       name: "Turkey", hours: 0, minutes: 30)
-    ])
+    TimerView5(
+        ingredients: [
+            PlanIngredient(topping: Topping(name: "Tomato", assetName: "tomato i"),
+                           name: "Tomato", hours: 0, minutes: 1),
+            PlanIngredient(topping: Topping(name: "Mayo", assetName: "mayo i"),
+                           name: "Mayo", hours: 1, minutes: 0),
+            PlanIngredient(topping: Topping(name: "Turkey", assetName: "turkey i"),
+                           name: "Turkey", hours: 0, minutes: 30)
+        ],
+        selectedID: .constant(UUID()),
+        timers: .constant([:]),
+        droppedOrder: .constant([])
+    )
 }

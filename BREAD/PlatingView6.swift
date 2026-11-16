@@ -68,6 +68,8 @@ struct PlatingView6: View {
                 .transition(.opacity)
             }
         }
+        // Hide the navigation bar so no back arrow shows over the plate
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             withAnimation(.interpolatingSpring(stiffness: 40, damping: 10).delay(0.3)) {
                 topBreadOffset = 0

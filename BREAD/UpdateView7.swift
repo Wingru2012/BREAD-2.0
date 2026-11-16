@@ -8,11 +8,27 @@
 import SwiftUI
 import UIKit
 
+/// Lets a view deep inside the plan flow return to the homepage.
+/// SelectView2 provides the action; UpdateView7 calls it from Done.
+private struct FinishPlanKey: EnvironmentKey {
+    static var defaultValue: () -> Void { {} }
+}
+
+extension EnvironmentValues {
+    var finishPlan: () -> Void {
+        get { self[FinishPlanKey.self] }
+        set { self[FinishPlanKey.self] = newValue }
+    }
+}
+
 struct UpdateView7: View {
     let petSize: CGFloat = 200
     let sandwichSize: CGFloat = 100
     let totalBites = 4
     var ingredients: [PlanIngredient] = []
+
+    // Supplied by SelectView2 so Done can return all the way to HomepageView1
+    @Environment(\.finishPlan) private var finishPlan
 
     @AppStorage("streakDays") private var streakDays = 1
     @AppStorage("streakPet") private var streakPet = "potato"
@@ -46,9 +62,26 @@ struct UpdateView7: View {
                     }
                     .offset(x: -67 * CGFloat(bitesTaken))
             }
-            Text("\(streakDays) Days")
+            Text("🔥 \(streakDays)")
                 .font(.largeTitle)
+
+            // Same blue pill styling as the "Start Plan" button on HomepageView1
+            Button {
+                finishPlan()
+            } label: {
+                Text("Done")
+                    .font(.title3)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
+                    .background(Color.blue)
+                    .cornerRadius(35)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
         }
+        // Hide the navigation bar so no back arrow shows while feeding
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             
             feedThePotato()
